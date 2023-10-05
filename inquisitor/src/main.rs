@@ -3,7 +3,7 @@ mod arp;
 use anyhow::{anyhow, Result};
 use arp::ArpClient;
 use clap::Parser;
-use pnet::{datalink::interfaces, util::MacAddr};
+use pnet::{datalink::interfaces, packet::arp::ArpOperations, util::MacAddr};
 use std::{
     net::Ipv4Addr,
     sync::{
@@ -12,16 +12,18 @@ use std::{
     },
 };
 
+use crate::arp::Message;
+
 #[derive(Parser, Debug, Copy, Clone)]
-struct Args {
+pub struct Args {
     #[clap(value_name = "source ipv4")]
-    sip: Ipv4Addr,
+    pub sip: Ipv4Addr,
     #[clap(value_name = "source mac")]
-    smac: MacAddr,
+    pub smac: MacAddr,
     #[clap(value_name = "target ipv4")]
-    tip: Ipv4Addr,
+    pub tip: Ipv4Addr,
     #[clap(value_name = "target mac")]
-    tmac: MacAddr,
+    pub tmac: MacAddr,
 }
 
 fn main() -> Result<()> {
@@ -39,9 +41,19 @@ fn main() -> Result<()> {
         .find(|iface| iface.is_up() && !iface.is_loopback())
         .ok_or(anyhow!("failed to find network interface"))?;
     let client = ArpClient::new(iface)?;
+    // FIX: remove unwrap
+    let mine = (
+        iface.ips.iter().find(|ip| ip.is_ipv4()).unwrap().ip(),
+        iface.mac.unwrap(),
+    );
     println!(
         "spoofing as {} ({}) to {} ({})",
         args.sip, args.smac, args.tip, args.smac
+    );
+    let spoof_msg = Message::new(
+        (args.sip, args.smac),
+        (args.tip, args.tmac),
+        ArpOperations::Reply,
     );
     Ok(())
 }

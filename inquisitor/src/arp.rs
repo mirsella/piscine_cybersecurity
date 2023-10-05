@@ -32,17 +32,15 @@ pub struct Message {
 
 impl Message {
     pub fn new(
-        source_ip: Ipv4Addr,
-        source_mac: MacAddr,
-        target_ip: Ipv4Addr,
-        target_mac: MacAddr,
+        source: (Ipv4Addr, MacAddr),
+        target: (Ipv4Addr, MacAddr),
         operation: ArpOperation,
     ) -> Self {
         Self {
-            source_ip,
-            source_mac,
-            target_ip,
-            target_mac,
+            source_ip: source.0,
+            source_mac: source.1,
+            target_ip: target.0,
+            target_mac: target.1,
             operation,
         }
     }
