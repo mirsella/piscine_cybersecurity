@@ -1,0 +1,47 @@
+version: "3.8"
+
+services:
+  ftp_server:
+    container_name: ftp_server
+    build:
+      context: .
+      dockerfile: server.dockerfile
+    mac_address: 00:00:00:00:00:02
+    networks:
+      hackernet:
+        ipv4_address: 10.0.0.2
+    # expose:
+    #   - "20:20"
+    #   - "21:21"
+    #   - "30000-30009:30000-30009"
+
+  ftp_client:
+    container_name: ftp_client
+    build:
+      context: .
+      dockerfile: client.dockerfile
+    tty: true
+    mac_address: "00:00:00:00:00:03"
+    networks:
+      hackernet:
+        ipv4_address: 10.0.0.3
+
+  attacker:
+    container_name: attacker
+    build:
+      context: .
+      dockerfile: client.dockerfile
+    volumes:
+      - .:/app
+    tty: true
+    mac_address: "00:00:00:00:00:04"
+    networks:
+      hackernet:
+        ipv4_address: 10.0.0.4
+
+networks:
+  hackernet:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.0.0.0/24
