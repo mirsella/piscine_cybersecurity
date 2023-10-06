@@ -32,19 +32,25 @@ fn main() -> Result<()> {
     let ctrlcclone = ctrlc.clone();
     ctrlc::set_handler(move || {
         ctrlcclone.store(true, Ordering::SeqCst);
-    })
-    .expect("Error setting Ctrl-C handler");
+    })?;
 
     let interfaces = interfaces();
     let iface = interfaces
         .iter()
         .find(|iface| iface.is_up() && !iface.is_loopback())
         .ok_or(anyhow!("failed to find network interface"))?;
+    println!("using interface: {}", iface.name);
     let client = ArpClient::new(iface)?;
-    // FIX: remove unwrap
     let mine = (
-        iface.ips.iter().find(|ip| ip.is_ipv4()).unwrap().ip(),
-        iface.mac.unwrap(),
+        iface
+            .ips
+            .iter()
+            .find(|ip| ip.is_ipv4())
+            .ok_or(anyhow!("didn't find a ipv4 address on interface"))?
+            .ip(),
+        iface
+            .mac
+            .ok_or(anyhow!("didn't find a mac address on interface"))?,
     );
     println!(
         "spoofing as {} ({}) to {} ({})",
