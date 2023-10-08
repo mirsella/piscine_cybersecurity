@@ -10,6 +10,8 @@ use std::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
+    thread,
+    time::Duration,
 };
 
 use crate::arp::ArpAttacker;
@@ -45,24 +47,26 @@ fn main() -> Result<()> {
     println!(" done.");
     while !ctrlc.load(Ordering::Relaxed) {
         println!("receiving...");
-        let data = match client.recv() {
-            Ok(data) => data,
-            Err(e) => {
-                // ignore interrupted errors (ctrl-c)
-                if let Some(e) = e.downcast_ref::<std::io::Error>() {
-                    if e.kind() == io::ErrorKind::Interrupted {
-                        continue;
-                    }
-                };
-                println!("failed to receive packet: {}", e);
-                continue;
-            }
-        };
-        println!(
-            "received packet: {:?}. payload: {:500?}",
-            data,
-            String::from_utf8_lossy(data.payload())
-        );
+        client.spoof((args.sip, args.smac), (args.tip, args.tmac))?;
+        // let data = match client.recv() {
+        //     Ok(data) => data,
+        //     Err(e) => {
+        //         // ignore interrupted errors (ctrl-c)
+        //         if let Some(e) = e.downcast_ref::<std::io::Error>() {
+        //             if e.kind() == io::ErrorKind::Interrupted {
+        //                 continue;
+        //             }
+        //         };
+        //         println!("failed to receive packet: {}", e);
+        //         continue;
+        //     }
+        // };
+        // println!(
+        //     "received packet: {:?}. payload: {:500?}",
+        //     data,
+        //     String::from_utf8_lossy(data.payload())
+        // );
+        thread::sleep(Duration::from_secs(1));
     }
     print!("unspoofing...");
     client.unspoof((args.sip, args.smac), (args.tip, args.tmac))?;

