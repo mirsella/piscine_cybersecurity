@@ -29,12 +29,7 @@ pub struct Args {
 fn main() -> Result<()> {
     let args = Args::parse();
     let ctrlc = Arc::new(AtomicBool::new(false));
-    let ctrlcclone = ctrlc.clone();
-    ctrlc::set_handler(move || {
-        ctrlcclone.store(true, Ordering::Relaxed);
-        println!("ctrl-c received, exiting...");
-    })?;
-
+    signal_hook::flag::register(signal_hook::consts::SIGINT, Arc::clone(&ctrlc))?;
     let interfaces = interfaces();
     let iface = interfaces
         .iter()
@@ -58,7 +53,6 @@ fn main() -> Result<()> {
                     if e.kind() == io::ErrorKind::Interrupted {
                         continue;
                     }
-                    println!("in io error, {e:#?}");
                 };
                 println!("failed to receive packet: {}", e);
                 continue;
@@ -67,7 +61,7 @@ fn main() -> Result<()> {
         println!(
             "received packet: {:?}. payload: {:500?}",
             data,
-            data.payload()
+            String::from_utf8_lossy(data.payload())
         );
     }
     print!("unspoofing...");
