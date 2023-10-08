@@ -1,18 +1,17 @@
 mod arp;
 
 use anyhow::{anyhow, Result};
-use arp::ArpClient;
 use clap::Parser;
-use pnet::{datalink::interfaces, ipnetwork::IpNetwork, packet::arp::ArpOperations, util::MacAddr};
+use pnet::{datalink::interfaces, util::MacAddr};
 use std::{
-    net::{IpAddr, Ipv4Addr},
+    net::Ipv4Addr,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
 };
 
-use crate::arp::{Addrs, Message};
+use crate::arp::ArpAttacker;
 
 #[derive(Parser, Debug, Copy, Clone)]
 pub struct Args {
@@ -40,7 +39,7 @@ fn main() -> Result<()> {
         .find(|iface| iface.is_up() && !iface.is_loopback())
         .ok_or(anyhow!("failed to find network interface"))?;
     println!("using interface: {}", iface.name);
-    let client = ArpClient::new(iface)?;
+    let client = ArpAttacker::new(iface)?;
     println!(
         "spoofing as {} ({}) to {} ({})",
         args.sip, args.smac, args.tip, args.smac
