@@ -5,7 +5,6 @@ use clap::Parser;
 use pnet::{
     datalink::interfaces,
     packet::{
-        arp::ArpPacket,
         ethernet::{EtherTypes, EthernetPacket},
         Packet,
     },
@@ -18,8 +17,6 @@ use std::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
-    thread,
-    time::Duration,
 };
 
 use crate::arp::ArpAttacker;
@@ -102,11 +99,17 @@ pub fn ftp_handle(p: EthernetPacket) -> Result<()> {
         })
         .collect::<String>();
     if let Some(i) = viewable_payload.find("STOR") {
-        let filename = &viewable_payload[i + 4..];
+        let filename = &viewable_payload[i + 5..];
         println!("sending {filename}");
     } else if let Some(i) = viewable_payload.find("RETR") {
-        let filename = &viewable_payload[i + 4..];
+        let filename = &viewable_payload[i + 5..];
         println!("receiving {filename}");
+    } else if let Some(i) = viewable_payload.find("USER") {
+        let user = &viewable_payload[i + 5..];
+        println!("logging in as {user:?}");
+    } else if let Some(i) = viewable_payload.find("PASS") {
+        let pass = &viewable_payload[i + 5..];
+        println!("logging in with password {pass:?}");
     } else {
         return Err(anyhow!("no STOR or RETR found"));
     }
