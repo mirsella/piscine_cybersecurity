@@ -1,4 +1,4 @@
-use std::net::Ipv4Addr;
+use std::{net::Ipv4Addr, time::Duration};
 
 use anyhow::{anyhow, Result};
 use pnet::{
@@ -37,7 +37,13 @@ impl ArpAttacker {
         let mac = iface
             .mac
             .ok_or(anyhow!("didn't find a mac address on interface"))?;
-        match datalink::channel(iface, Default::default()) {
+        match datalink::channel(
+            iface,
+            datalink::Config {
+                read_timeout: Some(Duration::from_secs(1)),
+                ..Default::default()
+            },
+        ) {
             Ok(Channel::Ethernet(tx, rx)) => Ok(Self {
                 tx,
                 rx,
@@ -62,7 +68,7 @@ impl ArpAttacker {
         let mut eth_packet = MutableEthernetPacket::owned(eth_buffer.to_vec())
             .ok_or(anyhow!("MutableEthernetPacket returned None"))?;
         eth_packet.set_source(self.mac);
-        eth_packet.set_destination(target.1);
+        eth_packet.set_destination(source.1);
         eth_packet.set_ethertype(EtherTypes::Arp);
         let arp_buffer = [0u8; 28];
         let mut mut_arp_packet = MutableArpPacket::owned(arp_buffer.to_vec())
@@ -79,8 +85,10 @@ impl ArpAttacker {
         let arp_packet =
             ArpPacket::new(mut_arp_packet.packet()).ok_or(anyhow!("ArpPacket returned None"))?;
         eth_packet.set_payload(arp_packet.packet());
+
         self.tx
-            .send_to(eth_packet.packet(), Some(self.iface.clone()));
+            // .send_to(eth_packet.packet(), Some(self.iface.clone()));
+            .send_to(eth_packet.packet(), None);
         Ok(())
     }
 
