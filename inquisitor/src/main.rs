@@ -70,7 +70,7 @@ fn main() -> Result<()> {
         };
         if args.verbose {
             println!(
-                "received packet: {:?}.\npayload: {:?}",
+                "{:?}.\npayload: {:?}",
                 data,
                 String::from_utf8_lossy(data.payload())
             );
