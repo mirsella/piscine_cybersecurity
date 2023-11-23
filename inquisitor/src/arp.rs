@@ -16,11 +16,11 @@ use pnet::{
 };
 
 pub struct ArpAttacker {
-    tx: Box<dyn DataLinkSender>,
-    rx: Box<dyn DataLinkReceiver>,
-    iface: NetworkInterface,
-    ip: Ipv4Addr,
-    mac: MacAddr,
+    pub tx: Box<dyn DataLinkSender>,
+    pub rx: Box<dyn DataLinkReceiver>,
+    pub iface: NetworkInterface,
+    pub ip: Ipv4Addr,
+    pub mac: MacAddr,
 }
 
 impl ArpAttacker {
@@ -93,14 +93,18 @@ impl ArpAttacker {
     }
 
     /// Unpoison the arp cache of source
+    /// source: victim
     /// target: target of the victim to spoof
-    /// this will make the target send a arp request to the source that will correct arp cache
-    pub fn unspoof(&mut self, target: (Ipv4Addr, MacAddr)) -> Result<()> {
+    pub fn unspoof(
+        &mut self,
+        source: (Ipv4Addr, MacAddr),
+        target: (Ipv4Addr, MacAddr),
+    ) -> Result<()> {
         let eth_buffer = [0u8; 42];
         let mut eth_packet = MutableEthernetPacket::owned(eth_buffer.to_vec())
             .ok_or(anyhow!("MutableEthernetPacket returned None"))?;
-        eth_packet.set_source(self.mac);
-        eth_packet.set_destination(target.1);
+        eth_packet.set_source(target.1);
+        eth_packet.set_destination(source.1);
         eth_packet.set_ethertype(EtherTypes::Arp);
         let arp_buffer = [0u8; 28];
         let mut mut_arp_packet = MutableArpPacket::owned(arp_buffer.to_vec())
@@ -109,10 +113,10 @@ impl ArpAttacker {
         mut_arp_packet.set_protocol_type(EtherTypes::Ipv4);
         mut_arp_packet.set_hw_addr_len(6);
         mut_arp_packet.set_proto_addr_len(4);
-        mut_arp_packet.set_sender_hw_addr(self.mac);
-        mut_arp_packet.set_target_hw_addr(target.1);
-        mut_arp_packet.set_sender_proto_addr(self.ip);
-        mut_arp_packet.set_target_proto_addr(target.0);
+        mut_arp_packet.set_sender_hw_addr(target.1);
+        mut_arp_packet.set_target_hw_addr(source.1);
+        mut_arp_packet.set_sender_proto_addr(target.0);
+        mut_arp_packet.set_target_proto_addr(source.0);
         mut_arp_packet.set_operation(ArpOperations::Reply);
         let arp_packet =
             ArpPacket::new(mut_arp_packet.packet()).ok_or(anyhow!("ArpPacket returned None"))?;
