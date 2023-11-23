@@ -1,4 +1,6 @@
 all:
+	cargo build --release
+	cp target/release/inquisitor .
 	docker compose up -d --build
 
 stop:

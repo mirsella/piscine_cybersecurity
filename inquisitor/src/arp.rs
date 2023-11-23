@@ -93,18 +93,14 @@ impl ArpAttacker {
     }
 
     /// Unpoison the arp cache of source
-    /// source: victim
     /// target: target of the victim to spoof
-    pub fn unspoof(
-        &mut self,
-        source: (Ipv4Addr, MacAddr),
-        target: (Ipv4Addr, MacAddr),
-    ) -> Result<()> {
+    /// this will make the target send a arp request to the source that will correct arp cache
+    pub fn unspoof(&mut self, target: (Ipv4Addr, MacAddr)) -> Result<()> {
         let eth_buffer = [0u8; 42];
         let mut eth_packet = MutableEthernetPacket::owned(eth_buffer.to_vec())
             .ok_or(anyhow!("MutableEthernetPacket returned None"))?;
         eth_packet.set_source(self.mac);
-        eth_packet.set_destination(source.1);
+        eth_packet.set_destination(target.1);
         eth_packet.set_ethertype(EtherTypes::Arp);
         let arp_buffer = [0u8; 28];
         let mut mut_arp_packet = MutableArpPacket::owned(arp_buffer.to_vec())
