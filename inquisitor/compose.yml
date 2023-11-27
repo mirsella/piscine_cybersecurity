@@ -34,6 +34,7 @@ services:
     volumes:
       - .:/app
     tty: true
+    working_dir: /app
     mac_address: "00:00:00:00:00:04"
     networks:
       hackernet:
