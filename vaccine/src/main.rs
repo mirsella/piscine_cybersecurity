@@ -1,25 +1,21 @@
-use std::path::PathBuf;
+mod opt;
 
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
+use opt::{HttpMethod, Opt};
 use structopt::StructOpt;
-
-#[derive(StructOpt, Debug)]
-struct Opt {
-    #[structopt(name = "URL")]
-    url: String,
-
-    #[structopt(short, long, default_value = "log.txt")]
-    output: PathBuf,
-
-    #[structopt(short = "X", long, default_value = "GET")]
-    http_method: String,
-}
 
 fn main() -> Result<()> {
     let opt = Opt::from_args();
-    if opt.http_method != "GET" && opt.http_method != "POST" {
-        bail!("Invalid HTTP method");
+    let body = match opt.http_method {
+        HttpMethod::Get => ureq::get(&opt.url),
+        HttpMethod::Post => ureq::post(&opt.url),
     }
-    dbg!(opt);
+    .call()?
+    .into_string()?;
+    let html = tl::parse(&body, Default::default()).context("parsing body")?;
+    let Some(form) = html.query_selector("form").and_then(|mut i| i.next()) else {
+        bail!("No form found on {}", opt.url);
+    };
+    dbg!(form);
     Ok(())
 }
