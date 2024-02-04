@@ -1,0 +1,20 @@
+version: "3.3"
+services:
+  web:
+    image: gitlab.cylab.be:8081/cylab/play/sql-injection
+    ports:
+      - "8000:80"
+    environment:
+      WAIT_HOSTS: mysql:3306
+
+  mysql:
+    image: mysql:5.7
+    ulimits:
+      nofile: # Fix memory leak issue on some systems when LimitCORE=infinity (containerd)
+        soft: 1048576
+        hard: 1048576
+    environment:
+      MYSQL_DATABASE: "cylab"
+      MYSQL_USER: "cylab"
+      MYSQL_PASSWORD: "cylab"
+      MYSQL_RANDOM_ROOT_PASSWORD: "true"

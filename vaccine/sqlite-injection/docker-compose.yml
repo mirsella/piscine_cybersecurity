@@ -1,0 +1,6 @@
+version: "3.3"
+services:
+  web:
+    image: gitlab.cylab.be:8081/cylab/play/sqlite-injection
+    ports:
+      - "8001:80"
