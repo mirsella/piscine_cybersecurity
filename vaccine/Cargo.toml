@@ -2,12 +2,14 @@
 name = "vaccine"
 version = "0.1.0"
 edition = "2021"
-
+description = "basic sql injection detection tool"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 anyhow = "1.0.79"
+clap = { version = "4.4.18", features = ["derive"] }
 difflib = "0.4.0"
-structopt = "0.3.26"
+log2 = "0.1.10"
 tl = "0.7.8"
 ureq = "2.9.4"
+url = "^2.3.1"
