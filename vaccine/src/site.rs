@@ -1,20 +1,27 @@
 use anyhow::{anyhow, bail, Context, Result};
 use clap::ValueEnum;
-use std::str::FromStr;
+use log2::{trace, warn};
+use strum::{Display, EnumString};
 use url::Url;
 
+#[derive(Debug)]
 pub struct Site {
     pub form: Form,
     pub url: Url,
+    pub db: Db,
 }
 
 impl Site {
     pub fn new(form: Form, url: Url) -> Self {
-        Self { form, url }
+        Self {
+            form,
+            url,
+            db: Default::default(),
+        }
     }
     /// for now only the first field of the form is used, dumb approach
-    pub fn submit(&self, payload: &str) -> Result<String> {
-        let mut data = vec![(self.form.fields[0].as_str(), payload)];
+    pub fn submit(&self, payload: impl AsRef<str>) -> Result<String> {
+        let mut data = vec![(self.form.fields[0].as_str(), payload.as_ref())];
         for field in self.form.fields.iter().skip(1) {
             data.push((field.as_str(), ""));
         }
@@ -51,19 +58,23 @@ impl TryFrom<tl::VDom<'_>> for Form {
             .context("couldn't find the action attribute on the form")?;
         let method = get_attribute(form, "method")
             .map_or_else(|_| Default::default(), |s| s.parse().unwrap_or_default());
+        if method == HttpMethod::Auto {
+            warn!("no method found, using GET. this is a sign this site will probably not work");
+        }
         let fields: Vec<_> = form
             .as_tag()
             .unwrap()
-            .query_selector(value.parser(), "input")
-            .ok_or(anyhow!("no input on form"))?
+            .query_selector(value.parser(), "input[type='text'], textarea")
+            .ok_or(anyhow!("invalid query selector"))?
             .filter_map(|input| {
-                input
-                    .get(value.parser())
-                    .and_then(|node| get_attribute(node, "name").ok())
+                input.get(value.parser()).and_then(|node| {
+                    trace!("found input {:?}", node.as_tag().map(|t| t.name()));
+                    get_attribute(node, "name").ok()
+                })
             })
             .collect();
         if fields.is_empty() {
-            bail!("no valid input fields found on form")
+            bail!("no valid input fields found on form. either a invalid form format or because of missing javascript")
         }
         Ok(Self {
             endpoint,
@@ -83,29 +94,20 @@ fn get_attribute(tag: &tl::Node, name: &str) -> Result<String> {
         .ok_or(anyhow!("{} attribute not found", name))
 }
 
-#[derive(Debug, Default, PartialEq, ValueEnum, Clone)]
+#[derive(Debug, Default, PartialEq, ValueEnum, Clone, Display, EnumString)]
+#[strum(ascii_case_insensitive)]
 pub enum HttpMethod {
     #[default]
     Auto,
     Get,
     Post,
 }
-impl ToString for HttpMethod {
-    fn to_string(&self) -> String {
-        match self {
-            HttpMethod::Auto => "AUTO".to_string(),
-            HttpMethod::Get => "GET".to_string(),
-            HttpMethod::Post => "POST".to_string(),
-        }
-    }
-}
-impl FromStr for HttpMethod {
-    type Err = &'static str;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "get" => Ok(HttpMethod::Get),
-            "post" => Ok(HttpMethod::Post),
-            _ => Err("Unsupported HTTP method"),
-        }
-    }
+
+#[derive(Debug, Default, EnumString, Display, Copy, Clone)]
+#[strum(ascii_case_insensitive)]
+pub enum Db {
+    #[default]
+    Unknown,
+    Mysql,
+    Sqlite,
 }

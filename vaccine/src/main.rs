@@ -1,13 +1,12 @@
 mod injection;
 mod site;
 
-use std::path::PathBuf;
-
 use crate::site::HttpMethod;
 use anyhow::{Context, Result};
 use clap::Parser;
 use log2::{debug, info, warn};
 use site::{Form, Site};
+use std::path::PathBuf;
 use url::Url;
 
 #[derive(Parser, Debug)]
@@ -16,13 +15,13 @@ pub struct Args {
     #[arg(name = "URL")]
     pub url: Url,
 
-    #[arg(short, long, default_value = "log.txt")]
+    #[arg(short, long, default_value = "output.log")]
     pub output: PathBuf,
 
     #[arg(short = 'X', long, value_enum, default_value_t)]
     pub http_method: HttpMethod,
 
-    #[arg(short, long, default_value = "debug")]
+    #[arg(short, long, default_value = "trace")]
     pub verbose: log2::level,
 }
 
@@ -43,7 +42,7 @@ fn main() -> Result<()> {
         warn!("overriding form method with {:?}", args.http_method);
         form.method = args.http_method;
     };
-    let site = Site::new(form, args.url);
-    injection::test(&site)?;
+    let mut site = Site::new(form, args.url);
+    injection::test(&mut site)?;
     Ok(())
 }
