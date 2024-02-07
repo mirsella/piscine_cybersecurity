@@ -64,8 +64,11 @@ pub fn test(site: &mut Site) -> Result<()> {
         if response != empty {
             let diff = diff(&empty, &response);
             if !diff.is_empty() && !diff.iter().any(|l| l.to_lowercase().contains("error")) {
-                let text = august::convert(&diff.join("\n"), usize::MAX);
-                let text = text.trim_matches(['\n', ' ', '+']).replace("\n\n", "\n");
+                // let text = august::convert(&diff.join("\n"), usize::MAX);
+                let text = nanohtml2text::html2text(&diff.join("\n"));
+                let text = text
+                    .trim_matches(['\n', '\r', ' ', '+'])
+                    .replace("\n\r\n", "\n");
                 info!("`{prompt}`:\n{}", text);
             }
         }

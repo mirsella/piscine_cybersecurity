@@ -1,4 +1,4 @@
-all: build
+all: build tests
 
 build:
 	cargo build
